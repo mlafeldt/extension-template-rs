@@ -1,18 +1,13 @@
-extern crate duckdb;
-extern crate duckdb_loadable_macros;
-extern crate libduckdb_sys;
-
 use duckdb::{
     core::{DataChunkHandle, Inserter, LogicalTypeHandle, LogicalTypeId},
     types::DuckString,
     vscalar::{ScalarFunctionSignature, VScalar},
     vtab::arrow::WritableVector,
+    duckdb_entrypoint_c_api,
     vtab::{BindInfo, InitInfo, TableFunctionInfo, VTab},
     Connection, Result,
 };
-use duckdb_loadable_macros::duckdb_entrypoint_c_api;
-use libduckdb_sys as ffi;
-use libduckdb_sys::duckdb_string_t;
+use duckdb::ffi::duckdb_string_t;
 use std::{
     error::Error,
     ffi::CString,
