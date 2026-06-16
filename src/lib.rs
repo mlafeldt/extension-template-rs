@@ -98,13 +98,10 @@ impl VTab for HelloVTab {
     }
 }
 
-const EXTENSION_NAME: &str = env!("CARGO_PKG_NAME");
-
-#[duckdb_entrypoint_c_api()]
+#[duckdb_entrypoint_c_api]
 pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>> {
-    con.register_table_function::<HelloVTab>(EXTENSION_NAME)
-        .expect("Failed to register hello table function");
-    con.register_scalar_function::<EchoScalar>("rusty_echo")
-        .expect("Failed to register echo scala function");
+    con.register_scalar_function::<EchoScalar>("rusty_echo")?;
+    con.register_table_function::<HelloVTab>("rusty_quack")?;
+
     Ok(())
 }
