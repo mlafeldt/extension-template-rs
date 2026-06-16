@@ -56,10 +56,24 @@ To run the extension code, start `duckdb` with `-unsigned` flag. This will allow
 duckdb -unsigned
 ```
 
-After loading the extension by the file path, you can use the functions provided by the extension (in this case, `rusty_quack()`).
+After loading the extension by the file path, you can use the functions provided by the extension. This template registers
+the `rusty_echo()` scalar function and the `rusty_quack()` table function.
 
 ```sql
 LOAD './build/debug/extension/rusty_quack/rusty_quack.duckdb_extension';
+SELECT rusty_echo('Jane');
+```
+
+```
+┌─────────────────────┐
+│ rusty_echo('Jane')  │
+│       varchar       │
+├─────────────────────┤
+│ 🐤 Jane 🦀 Jane     │
+└─────────────────────┘
+```
+
+```sql
 SELECT * FROM rusty_quack('Jane');
 ```
 
