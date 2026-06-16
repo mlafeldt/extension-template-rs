@@ -20,4 +20,7 @@ path = "src/wasm_lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-duckdb = { version = "~1.10503.1", features = ["loadable-extension"] }
+duckdb = { version = "~1.10503.1", features = [
+    "loadable-extension",
+    "vscalar",
+] }

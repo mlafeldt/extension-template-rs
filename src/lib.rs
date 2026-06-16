@@ -1,7 +1,10 @@
 use duckdb::{
     core::{DataChunkHandle, Inserter, LogicalTypeHandle, LogicalTypeId},
     duckdb_entrypoint_c_api,
-    vtab::{BindInfo, InitInfo, TableFunctionInfo, VTab},
+    ffi::duckdb_string_t,
+    types::DuckString,
+    vscalar::{ScalarFunctionSignature, VScalar},
+    vtab::{arrow::WritableVector, BindInfo, InitInfo, TableFunctionInfo, VTab},
     Connection, Result,
 };
 use std::{
@@ -9,6 +12,41 @@ use std::{
     ffi::CString,
     sync::atomic::{AtomicBool, Ordering},
 };
+
+struct EchoScalar;
+
+impl VScalar for EchoScalar {
+    type State = ();
+
+    unsafe fn invoke(
+        _state: &Self::State,
+        input: &mut DataChunkHandle,
+        output: &mut dyn WritableVector,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let input_vec = input.flat_vector(0);
+        let values = unsafe { input_vec.as_slice_with_len::<duckdb_string_t>(input.len()) };
+        let mut output = output.flat_vector();
+
+        for (i, value) in values.iter().enumerate() {
+            if input_vec.row_is_null(i as u64) {
+                output.set_null(i);
+                continue;
+            }
+
+            let mut value = *value;
+            let s = DuckString::new(&mut value).as_str();
+            output.insert(i, format!("🐤 {s} 🦀 {s}").as_str());
+        }
+        Ok(())
+    }
+
+    fn signatures() -> Vec<ScalarFunctionSignature> {
+        vec![ScalarFunctionSignature::exact(
+            vec![LogicalTypeId::Varchar.into()],
+            LogicalTypeId::Varchar.into(),
+        )]
+    }
+}
 
 #[repr(C)]
 struct HelloBindData {
@@ -60,11 +98,10 @@ impl VTab for HelloVTab {
     }
 }
 
-const EXTENSION_NAME: &str = env!("CARGO_PKG_NAME");
-
-#[duckdb_entrypoint_c_api()]
+#[duckdb_entrypoint_c_api]
 pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>> {
-    con.register_table_function::<HelloVTab>(EXTENSION_NAME)
-        .expect("Failed to register hello table function");
+    con.register_scalar_function::<EchoScalar>("rusty_echo")?;
+    con.register_table_function::<HelloVTab>("rusty_quack")?;
+
     Ok(())
 }
