@@ -1,63 +1,41 @@
 use duckdb::{
     core::{DataChunkHandle, Inserter, LogicalTypeHandle, LogicalTypeId},
+    duckdb_entrypoint_c_api,
+    ffi::duckdb_string_t,
     types::DuckString,
     vscalar::{ScalarFunctionSignature, VScalar},
-    vtab::arrow::WritableVector,
-    duckdb_entrypoint_c_api,
-    vtab::{BindInfo, InitInfo, TableFunctionInfo, VTab},
+    vtab::{arrow::WritableVector, BindInfo, InitInfo, TableFunctionInfo, VTab},
     Connection, Result,
 };
-use duckdb::ffi::duckdb_string_t;
 use std::{
     error::Error,
     ffi::CString,
     sync::atomic::{AtomicBool, Ordering},
 };
 
-struct EchoState {
-    multiplier: usize,
-    separator: String,
-    prefix: String,
-}
-
-impl Default for EchoState {
-    fn default() -> Self {
-        Self {
-            multiplier: 3,
-            separator: "📢".to_string(),
-            prefix: "🐤".to_string(),
-        }
-    }
-}
-
-struct EchoScalar {}
+struct EchoScalar;
 
 impl VScalar for EchoScalar {
-    type State = EchoState;
+    type State = ();
 
     unsafe fn invoke(
-        state: &Self::State,
+        _state: &Self::State,
         input: &mut DataChunkHandle,
         output: &mut dyn WritableVector,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let values = input.flat_vector(0);
-        let values = values.as_slice_with_len::<duckdb_string_t>(input.len());
-        let strings = values
-            .iter()
-            .map(|ptr| DuckString::new(&mut { *ptr }).as_str().to_string())
-            .take(input.len());
-        let output = output.flat_vector();
+        let input_vec = input.flat_vector(0);
+        let values = unsafe { input_vec.as_slice_with_len::<duckdb_string_t>(input.len()) };
+        let mut output = output.flat_vector();
 
-        for (i, s) in strings.enumerate() {
-            let res = format!(
-                "{} {}",
-                state.prefix,
-                std::iter::repeat(s)
-                    .take(state.multiplier)
-                    .collect::<Vec<_>>()
-                    .join(&state.separator)
-            );
-            output.insert(i, res.as_str());
+        for (i, value) in values.iter().enumerate() {
+            if input_vec.row_is_null(i as u64) {
+                output.set_null(i);
+                continue;
+            }
+
+            let mut value = *value;
+            let s = DuckString::new(&mut value).as_str();
+            output.insert(i, format!("🐤 {s} 🦀 {s}").as_str());
         }
         Ok(())
     }
